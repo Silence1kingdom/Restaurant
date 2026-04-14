@@ -31,12 +31,14 @@ connectDB();
 // Security middleware
 app.use(helmet());
 
-app.use(cors({
-  origin: '*', 
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
+// CORS - Updated for production
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+app.use(cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -63,7 +65,8 @@ app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Server is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
   });
 });
 
@@ -80,12 +83,14 @@ app.get('/', (req, res) => {
     success: true,
     message: 'Welcome to koshari101 API',
     version: '1.0.0',
+    status: 'online',
     endpoints: {
       auth: '/api/auth',
       menu: '/api/menu',
       orders: '/api/orders',
       reviews: '/api/reviews',
-      payment: '/api/payment'
+      payment: '/api/payment',
+      health: '/health'
     }
   });
 });
@@ -103,7 +108,7 @@ app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
@@ -111,14 +116,12 @@ const server = app.listen(PORT, () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err.message);
-  // Close server & exit process
   server.close(() => process.exit(1));
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err.message);
-  // Close server & exit process
   server.close(() => process.exit(1));
 });
 
