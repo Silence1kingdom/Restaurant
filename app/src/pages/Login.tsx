@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,26 +20,45 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const from = (location.state as any)?.from?.pathname || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
+    
+    // Client-side validation
+    if (!email.trim()) {
+      setFormError(t('auth.emailRequired') || 'Email is required');
+      return;
+    }
+    
+    if (!password) {
+      setFormError(t('auth.passwordRequired') || 'Password is required');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       await login(email, password);
       navigate(from, { replace: true });
-    } catch (error) {
-      // Error handled in auth context
+    } catch (error: any) {
+      console.error('Login failed:', error);
+      if (error.response?.status === 401) {
+        setFormError(t('auth.invalidCredentials') || 'Invalid email or password');
+      } else if (error.response?.status === 429) {
+        setFormError(t('auth.tooManyAttempts') || 'Too many attempts. Please try again later.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen py-20">
-      <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-20 px-4">
+      <div className="max-w-md mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -52,6 +71,12 @@ export default function Login() {
             <h1 className="text-2xl font-bold">{t('auth.loginTitle')}</h1>
             <p className="text-muted-foreground mt-2">{t('auth.loginSubtitle')}</p>
           </div>
+
+          {formError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              {formError}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
@@ -66,6 +91,9 @@ export default function Login() {
                   placeholder="your@email.com"
                   className="pl-10"
                   required
+                  autoComplete="email"
+                  disabled={isLoading}
+                  aria-label={t('auth.email')}
                 />
               </div>
             </div>
@@ -82,11 +110,15 @@ export default function Login() {
                   placeholder="••••••••"
                   className="pl-10 pr-10"
                   required
+                  autoComplete="current-password"
+                  disabled={isLoading}
+                  aria-label={t('auth.password')}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-amber-500 rounded"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -99,12 +131,16 @@ export default function Login() {
                   id="remember"
                   checked={rememberMe}
                   onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  disabled={isLoading}
                 />
-                <Label htmlFor="remember" className="text-sm font-normal">
-                  Remember me
+                <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
+                  {t('auth.rememberMe') || 'Remember me'}
                 </Label>
               </div>
-              <Link to="/forgot-password" className="text-sm text-amber-600 hover:underline">
+              <Link 
+                to="/forgot-password" 
+                className="text-sm text-amber-600 hover:underline hover:text-amber-700"
+              >
                 {t('auth.forgotPassword')}
               </Link>
             </div>
@@ -117,8 +153,8 @@ export default function Login() {
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
-                  <span className="animate-spin">⏳</span>
-                  Signing in...
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {t('auth.signingIn') || 'Signing in...'}
                 </span>
               ) : (
                 t('auth.signIn')
@@ -129,7 +165,10 @@ export default function Login() {
           <div className="mt-6 text-center">
             <p className="text-muted-foreground">
               {t('auth.noAccount')}{' '}
-              <Link to="/register" className="text-amber-600 hover:underline font-medium">
+              <Link 
+                to="/register" 
+                className="text-amber-600 hover:underline font-medium hover:text-amber-700"
+              >
                 {t('auth.signUp')}
               </Link>
             </p>
